@@ -43,47 +43,42 @@ public class Timeseal {
     input[a] ^= input[b];
   }
 
-  public static byte[] crypt(long time, String message) {
-    int index = message.length();
-    byte[] input = new byte[12 + message.length()];
-    System.arraycopy(message.getBytes(), 0, input, 0, index);
+  public static byte[] crypt(long timeNanos, byte[] message, int length) {
+    int index = length;
+    byte[] input = new byte[12 + index];
+    System.arraycopy(message, 0, input, 0, index);
     input[index++] = 0x18;
-    long seconds = TimeUnit.NANOSECONDS.toSeconds(time);
-    long microseconds = TimeUnit.NANOSECONDS.toMicros(time) % 1000000;
+    long seconds = TimeUnit.NANOSECONDS.toSeconds(timeNanos);
+    long microseconds = TimeUnit.NANOSECONDS.toMicros(timeNanos) % 1000000;
 
     byte[] timeBytes = String.format("%d", (seconds % 10000) * 1000 + microseconds / 1000)
         .getBytes();
     System.arraycopy(timeBytes, 0, input, index, timeBytes.length);
 
-    System.out.println("[crypt] before pad -> " + TimesealTest.toHexString(input));
     index += timeBytes.length;
     input[index++] = 0x19;
     for (; index % 12 != 0; index++) {
       input[index] = '1';
     }
 
-    System.out.println("[crypt] before swap -> " + TimesealTest.toHexString(input));
     for (int n = 0; n < index; n += 12) {
       swap(input, n, n + 11);
       swap(input, n + 2, n + 9);
       swap(input, n + 4, n + 7);
     }
 
-    System.out.println("[crypt] before xor -> " + TimesealTest.toHexString(input));
     for (int n = 0; n < index; n++) {
       input[n] = (byte) (((input[n] | 0x80) ^ KEY[n % KEY.length]) - 32);
     }
 
     input[index++] = (byte) 0x80;
     input[index++] = 0x0a;
-    System.out.println("[crypt] done -> " + TimesealTest.toHexString(input));
     return input;
   }
 
   public static TimesealedMessage decrypt(byte[] input) {
     byte[] extendedInput = new byte[12 + input.length];
     System.arraycopy(input, 0, extendedInput, 0, input.length);
-//    System.out.println("[decrypt] before xor -> " + Arrays.toString(input));
     int end = 0;
 
     // first, locate the end of the string
@@ -94,19 +89,15 @@ public class Timeseal {
     }
 
     int offset = input[end - 1] & 0xff;
-//    System.out.println("offset=" + offset);
-    
+
     for (int i = 0; i < end; i++) {
-//      System.out.print(String.format("extendedInput[%d]=%d,", i, extendedInput[i]));
       int keyPosition = (i + offset - 0x80) % KEY.length;
       if (keyPosition < 0) {
         return null;
       }
       extendedInput[i] = (byte) (((extendedInput[i] + 32) ^ KEY[keyPosition]) & ~0x80);
-//      System.out.println(String.format("out=%d", extendedInput[i]));
     }
 
-//    System.out.println("[decrypt] before swap -> " + Arrays.toString(extendedInput));
     for (int i = 0; i < end; i += 12) {
       swap(extendedInput, i, i + 11);
       swap(extendedInput, i + 2, i + 9);
@@ -126,7 +117,6 @@ public class Timeseal {
       }
     }
 
-//    System.out.println("[decrypt] done -> " + Arrays.toString(extendedInput));
     return new TimesealedMessage(time, new String(extendedInput, 0, length));
   }
 

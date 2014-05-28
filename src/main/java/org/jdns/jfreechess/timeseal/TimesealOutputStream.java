@@ -7,15 +7,19 @@ import java.nio.ByteBuffer;
 public class TimesealOutputStream extends OutputStream {
   private final ByteBuffer buffer = ByteBuffer.allocate(TimesealSocket.BUFFER_SIZE);
   private final OutputStream underlyingStream;
-  private final TimeSource timeSource;
+  private final Clock clock;
 
-  public TimesealOutputStream(OutputStream underlyingStream) {
-    this(underlyingStream, new SystemTimeSource());
+  TimesealOutputStream(OutputStream underlyingStream) {
+    this(underlyingStream, new Clock() {
+      @Override public long nanoTime() {
+        return System.nanoTime();
+      }
+    });
   }
 
-  TimesealOutputStream(OutputStream underlyingStream, TimeSource timeSource) {
+  TimesealOutputStream(OutputStream underlyingStream, Clock clock) {
     this.underlyingStream = underlyingStream;
-    this.timeSource = timeSource;
+    this.clock = clock;
   }
 
   @Override
@@ -37,10 +41,10 @@ public class TimesealOutputStream extends OutputStream {
     int length = buffer.position() - buffer.arrayOffset();
     byte[] cryptedBuffer = new byte[TimesealSocket.BUFFER_SIZE + 20];
     System.arraycopy(buffer.array(), buffer.arrayOffset(), cryptedBuffer, 0, length);
-    int k = Timeseal.crypt(timeSource, cryptedBuffer, length);
-    underlyingStream.write(cryptedBuffer, 0, k);
+    cryptedBuffer = Timeseal.crypt(clock.nanoTime(), cryptedBuffer, length);
+    underlyingStream.write(cryptedBuffer, 0, cryptedBuffer.length);
 
-    int i;
+    int i, k;
     for (i = length, k = 0; i < length; i++, k++) {
       buffer.put(k, buffer.get(i));
     }
