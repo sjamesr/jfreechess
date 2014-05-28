@@ -2,3 +2,4 @@
 .gradle/
 jfreechess.iml
 gradle/
+out/
