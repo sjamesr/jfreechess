@@ -10,4 +10,5 @@ repositories {
 dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.11'
     compile group: 'org.apache.xmlgraphics', name: 'batik-swing', version: '1.7'
+    compile group: 'com.google.guava', name: 'guava', version: '17.0'
 }
